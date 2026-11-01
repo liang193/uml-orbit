@@ -25,7 +25,7 @@
         <div id="canvas" tabindex="0" aria-label="UML 绘图画布">
           <div class="canvas-corner"><span class="tiny-dot"></span> INFINITE POSSIBILITIES <span class="corner-line"></span></div>
           <svg id="diagram" xmlns="http://www.w3.org/2000/svg"><defs id="svgDefs"></defs><g id="viewport"><g id="edgeLayer"></g><g id="nodeLayer"></g></g></svg>
-          <div class="floating-tools"><button class="tool connect-tool" data-mode="smart" title="连接两个元素 (C)">⤳ <span>连接</span><small>C</small></button><span class="tool-separator"></span><button class="tool" id="undoBtn" title="撤销 Ctrl+Z">↶</button><button class="tool" id="redoBtn" title="重做 Ctrl+Shift+Z">↷</button></div>
+          <div class="floating-tools"><button class="tool connect-tool" data-mode="smart" title="连接两个元素 (C)">⤳ <span>连接</span><small>C</small></button><button class="tool connect-tool" id="layoutBtn" title="重新排列节点，减少连线交叉（可撤销）">✦ <span>整理</span></button><span class="tool-separator"></span><button class="tool" id="undoBtn" title="撤销 Ctrl+Z">↶</button><button class="tool" id="redoBtn" title="重做 Ctrl+Shift+Z">↷</button></div>
           <div id="modeHint" class="mode-hint">单击编辑 · 长按拖动 · 空白处拖动画布</div>
           <div id="relationPicker" class="relation-picker" role="region" aria-label="快捷关系选择" hidden></div>
           <div class="canvas-bottom"><div class="canvas-help"><kbd>Space</kbd> 拖动画布 <span>·</span> <kbd>Ctrl</kbd> + 滚轮缩放</div><div class="zoom-control"><button id="zoomOut" title="缩小">−</button><span id="zoomLabel">100%</span><button id="zoomIn" title="放大">＋</button><i></i><button id="fitBtn" title="适应画布">⌗</button></div></div>

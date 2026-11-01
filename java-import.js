@@ -1,5 +1,5 @@
 import {formatMember,splitJava} from './java-assist.js';
-import {nodeSize} from './router.js';
+import {layoutGraph} from './graph-layout.js';
 
 // Structural source reader: comments/strings are masked at identical offsets.
 // Bodies are skipped with balanced braces, never evaluated or executed.
@@ -107,10 +107,12 @@ export function parseJavaSources(files,{fieldRelations=true,dependencyRelations=
   if(inferred)warnings.push(`${inferred} 条聚合/组合是基于字段创建、注入方式的候选推断，生命周期和独占所有权仍需人工确认；双击关系线可修改。`);
   if(unresolved)warnings.push(`${unresolved} 个父类或接口未在导入源码中找到，未创建占位节点。`);
   const nameCounts=new Map();nodes.forEach(n=>nameCounts.set(n.name,(nameCounts.get(n.name)||0)+1));nodes.forEach(n=>{if(nameCounts.get(n.name)>1)n.name=n.id;});
-  // Parents first, then subtypes; row sizes follow actual member text widths.
-  const levels=new Map();function level(n,visiting=new Set()){if(levels.has(n.id))return levels.get(n.id);if(visiting.has(n.id))return 0;visiting.add(n.id);const parents=edges.filter(e=>e.source===n.id&&['inheritance','realization'].includes(e.type)).map(e=>nodes.find(n=>n.id===e.target)).filter(Boolean);const value=parents.length?Math.min(6,1+Math.max(...parents.map(p=>level(p,new Set(visiting))))):0;levels.set(n.id,value);return value;}
-  let y=70;const groups=new Map();for(const n of nodes){const l=level(n);if(!groups.has(l))groups.set(l,[]);groups.get(l).push(n);}
-  for(const [,group]of [...groups].sort((a,b)=>a[0]-b[0])){let x=60,rowHeight=0;for(let i=0;i<group.length;i++){const n=group[i],size=nodeSize(n);if(i&&i%3===0){y+=rowHeight+110;x=60;rowHeight=0;}n.x=x;n.y=y;x+=size.w+120;rowHeight=Math.max(rowHeight,size.h);}y+=rowHeight+150;}
+  // Oversized analyses are preview-only; the UI refuses generation, so don't
+  // spend time optimizing a graph that cannot be placed on the canvas.
+  if(nodes.length<=150&&edges.length<=300){
+    const layout=layoutGraph(nodes,edges),byId=new Map(nodes.map(n=>[n.id,n]));
+    for(const p of layout.positions)Object.assign(byId.get(p.id),{x:p.x,y:p.y});
+  }
   if(!nodes.length)warnings.push('没有识别到 class / interface / enum / record 声明。');
   return {version:1,name:'Java 源码 · 类图',nodes,edges,warnings};
 }

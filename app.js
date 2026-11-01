@@ -48,6 +48,23 @@ let dragFrameCosts=[];
 const routeCache=new Map(),nodeElements=new Map(),edgeElements=new Map();
 const routingWaiters=[];
 const routingWorker=new Worker(new URL('./routing-worker.js',import.meta.url),{type:'module'});
+const layoutWorker=new Worker(new URL('./layout-worker.js',import.meta.url),{type:'module'});
+let layoutRevision=0,layoutInput='';
+$('#layoutBtn').onclick=()=>{
+  if(!model.nodes.length)return toast('先创建或导入一些元素。');
+  layoutInput=JSON.stringify(model);$('#layoutBtn').disabled=true;$('#layoutBtn').querySelector('span').textContent='整理中';
+  layoutWorker.postMessage({revision:++layoutRevision,nodes:model.nodes,edges:model.edges});
+};
+function finishLayout(){$('#layoutBtn').disabled=false;$('#layoutBtn').querySelector('span').textContent='整理';}
+layoutWorker.onmessage=({data})=>{
+  if(data.revision!==layoutRevision)return;finishLayout();
+  if(data.error)return toast('自动整理失败，请重试。');
+  if(drag||JSON.stringify(model)!==layoutInput)return toast('图纸已修改，请再次点击整理。');
+  snapshot();const positions=new Map(data.positions.map(p=>[p.id,p]));
+  for(const n of model.nodes){const p=positions.get(n.id);if(p){n.x=p.x;n.y=p.y;}}
+  selection=null;pending=null;routeCache.clear();changed();fit();toast('已整理布局并减少交叉 · Ctrl+Z 可撤销');
+};
+layoutWorker.onerror=()=>{finishLayout();toast('后台布局失败，请刷新后重试。');};
 routingWorker.onmessage=({data})=>{
   routeBusy=false;
   if(data.revision===routeRevision&&!data.error){
@@ -60,7 +77,7 @@ routingWorker.onmessage=({data})=>{
   else if(!routeBusy){for(const resolve of routingWaiters.splice(0))resolve();}
 };
 routingWorker.onerror=()=>{routeBusy=false;for(const resolve of routingWaiters.splice(0))resolve();toast('后台寻路发生错误，请刷新页面重试。');};
-function scheduleRoutes(){routeQueued={revision:++routeRevision,nodes:model.nodes,edges:model.edges.map(({id,source,target})=>({id,source,target}))};if(!routeBusy)dispatchRoutes();}
+function scheduleRoutes(){routeQueued={revision:++routeRevision,nodes:model.nodes,edges:model.edges.map(({id,source,target,type})=>({id,source,target,type}))};if(!routeBusy)dispatchRoutes();}
 function dispatchRoutes(){routeBusy=true;routingWorker.postMessage(routeQueued);routeQueued=null;}
 function validModel(m){
   if(!m||m.version!==1||typeof m.name!=='string'||m.name.length>100||!Array.isArray(m.nodes)||!Array.isArray(m.edges)||m.nodes.length>150||m.edges.length>300)throw Error('项目格式无效，或超过 150 个元素 / 300 个关系的限制。');
