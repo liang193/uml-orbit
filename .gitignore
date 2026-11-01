@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+coverage/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+tests/fixtures/stress-60.json
+preview.jpg

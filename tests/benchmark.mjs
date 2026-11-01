@@ -1,0 +1,12 @@
+import {performance} from 'node:perf_hooks';
+import {writeFile,mkdir} from 'node:fs/promises';
+import {RoutingEngine} from '../routing-engine.js';
+const nodes=Array.from({length:60},(_,i)=>({id:`n${i}`,type:'class',name:`Service${i}`,x:(i%10)*360,y:Math.floor(i/10)*260,color:'#b4f4d0',attrs:['- id: Long','- name: String'],methods:['+ execute(): void']}));
+const edges=[];
+for(let i=0;i<nodes.length;i++)for(const j of [i%10<9?i+1:-1,i+10<nodes.length?i+10:-1])if(j>=0)edges.push({id:`e${edges.length}`,source:`n${i}`,target:`n${j}`,type:'directed',start:'none',end:'arrow',line:'solid',label:''});
+const engine=new RoutingEngine();let start=performance.now();const cold=engine.compute(nodes,edges),coldMs=performance.now()-start;
+start=performance.now();const warm=engine.compute(nodes,edges),warmMs=performance.now()-start;
+nodes[22].x+=35;nodes[22].y+=20;start=performance.now();const moved=engine.compute(nodes,edges),moveMs=performance.now()-start;
+console.log(JSON.stringify({nodes:nodes.length,edges:edges.length,coldMs:+coldMs.toFixed(2),warmMs:+warmMs.toFixed(2),moveMs:+moveMs.toFixed(2),warmReused:warm.reused,moveRecomputed:moved.computed,moveReused:moved.reused},null,2));
+await mkdir(new URL('./fixtures/',import.meta.url),{recursive:true});
+await writeFile(new URL('./fixtures/stress-60.json',import.meta.url),JSON.stringify({version:1,name:'性能验证 · 60 个类',nodes,edges},null,2));
