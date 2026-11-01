@@ -50,7 +50,8 @@ test('separates multiple relations between the same classes and updates their po
   const nodes=[{...node('A'),x:0},{...node('B'),x:600}],edges=Array.from({length:3},(_,i)=>({id:`e${i}`,source:'A',target:'B',type:i?'dependency':'association'}));
   const engine=new RoutingEngine(),result=engine.compute(nodes,edges);safeRoutes(nodes,result);
   assert.equal(new Set(result.routes.map(r=>JSON.stringify(r.points))).size,3);
-  const updated=engine.compute(nodes,edges.slice(0,1));safeRoutes(nodes,updated);assert.equal(updated.computed,1);assert.equal(updated.routes.length,1);
+  const updated=engine.compute(nodes,edges.slice(0,1));safeRoutes(nodes,updated);assert.equal(updated.routes.length,1);assert.equal(updated.routes[0].points.length,2);
+  const reassigned=engine.compute(nodes,edges.slice(1,2));safeRoutes(nodes,reassigned);assert.equal(reassigned.computed,1);assert.equal(reassigned.routes[0].points.length,2);
 });
 
 test('crossing and overlap costs count split segments once and the index matches direct scoring',()=>{
