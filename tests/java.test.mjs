@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {formatMember,suggestJava} from '../java-assist.js';
 import {parseJavaSources} from '../java-import.js';
 import {nodeSize,classifierHeader,memberDisplay,textWidth} from '../router.js';
+import {readFile} from 'node:fs/promises';
 test('normalizes Java fields, methods, constructors and generic parameters',()=>{
   assert.equal(formatMember('private final Map<String, List<User>> users = new HashMap<>();'),'- users: Map<String, List<User>>');
   assert.equal(formatMember('public static Optional<User> find(final Long id, String... names) throws IOException;'),'+ find(id: Long, names: String...): Optional<User> {static}');
@@ -31,3 +32,25 @@ test('ignores comments, skips method bodies, keeps record fields and nested clas
 });
 test('does not guess aggregation or missing external parents',()=>{const m=parseJavaSources([{name:'A.java',content:'class A extends Missing { private B b; } class B {}'}]);assert.ok(m.warnings.length);assert.equal(m.edges.length,1);assert.equal(m.edges[0].type,'directed');assert.equal(parseJavaSources([{name:'A.java',content:'class A { B b; } class B {}'}],{fieldRelations:false}).edges.length,0);});
 test('generic parameter bounds are not mistaken for class inheritance',()=>{const m=parseJavaSources([{name:'Types.java',content:'class Entity {} class Base<T> {} interface Store<T> {} class Repository<T extends Entity> extends Base<T> implements Store<T> {}'}]);assert.equal(m.edges.length,2);assert.ok(m.edges.some(e=>e.target==='Base'));assert.ok(m.edges.some(e=>e.target==='Store'));assert.ok(!m.edges.some(e=>e.target==='Entity'));});
+test('real-world commented UML demo preserves members and identifies structural and usage relationships',async()=>{
+  const content=await readFile(new URL('./fixtures/relations-demo.java',import.meta.url),'utf8'),m=parseJavaSources([{name:'UmlDemoMain.java',content}]);
+  assert.equal(m.nodes.length,9);
+  const employee=m.nodes.find(n=>n.name==='Employee'),company=m.nodes.find(n=>n.name==='Company');
+  assert.deepEqual(employee.attrs,['- idCard: IdCard']);assert.ok(employee.methods.includes('+ useTool(tool: Tool): void'));
+  assert.deepEqual(company.attrs,['- companyName: String','- employees: Employee[]']);
+  for(const n of m.nodes)for(const line of [...n.attrs,...n.methods])assert.doesNotMatch(line,/\/\/|【|关联|聚合|依赖/);
+  const relation=(source,target,type)=>m.edges.find(e=>e.source===source&&e.target===target&&e.type===type);
+  assert.ok(relation('Employee','Person','inheritance'));assert.ok(relation('Employee','Workable','realization'));
+  assert.ok(relation('Employee','IdCard','directed'));assert.ok(relation('Employee','Tool','dependency'));
+  const aggregation=relation('Company','Employee','aggregation');assert.equal(aggregation.start,'diamond');assert.equal(aggregation.targetCardinality,'0..*');assert.equal(aggregation.inferred,true);
+  const composition=relation('House','Room','composition');assert.equal(composition.start,'filledDiamond');assert.equal(composition.inferred,true);
+  for(const target of ['IdCard','Employee','Tool','Company','House'])assert.ok(relation('UmlDemoMain',target,'dependency'));
+  assert.ok(m.warnings.some(w=>w.includes('候选')));
+  const plain=parseJavaSources([{name:'Demo.java',content}],{inferOwnership:false});assert.ok(!plain.edges.some(e=>['composition','aggregation'].includes(e.type)));
+  const rects=m.nodes.map(n=>({...nodeSize(n),x:n.x,y:n.y}));for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){const a=rects[i],b=rects[j];assert.ok(!(a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y));}
+});
+test('ownership candidates are conservative and true reciprocal fields produce one association',()=>{
+  const m=parseJavaSources([{name:'A.java',content:'class A { private B b = new B(); public B getB(){return b;} public void use(B b){this.b=b;} } class B { private A owner; }'}]);
+  assert.equal(m.edges.filter(e=>e.type==='association').length,1);assert.ok(!m.edges.some(e=>e.type==='composition'));
+  const dep=parseJavaSources([{name:'Use.java',content:'class Use { public B find(B input) throws B {return input;} } class B {}'}]);assert.equal(dep.edges.length,1);assert.equal(dep.edges[0].type,'dependency');assert.equal(dep.edges[0].line,'dashed');
+});
